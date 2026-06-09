@@ -1,0 +1,23 @@
+{
+  "name": "otp-send-service",
+  "version": "1.0.0",
+  "description": "Standalone WhatsApp OTP Send Service",
+  "main": "app.js",
+  "type": "module",
+  "scripts": {
+    "dev": "nodemon app.js",
+    "start": "node app.js"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.2.0",
+    "@fastify/swagger": "^9.7.0",
+    "@fastify/swagger-ui": "^5.2.6",
+    "dotenv": "^17.4.2",
+    "fastify": "^5.8.5",
+    "qrcode": "^1.5.4",
+    "whatsapp-web.js": "^1.34.7"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}
