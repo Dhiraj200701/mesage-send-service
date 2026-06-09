@@ -1,4 +1,6 @@
 [phases.setup]
+nixPkgs = ["chromium"]
+
 aptPkgs = [
   "fonts-liberation",
   "libappindicator3-1",
