@@ -9,6 +9,16 @@ import { whatsappService } from "./whatsapp.service.js";
 // Load environment variables
 dotenv.config();
 
+// Safe global error handlers to prevent crashes from internal Puppeteer timeouts
+// This ensures the server stays up even if the WhatsApp library throws an unhandled rejection.
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("⚠️ Unhandled Rejection (Caught by Safe Handler):", reason?.message || reason);
+});
+
+process.on("uncaughtException", (error) => {
+  console.error("⚠️ Uncaught Exception (Caught by Safe Handler):", error?.message || error);
+});
+
 // Removed global error handlers to prevent auto-restarts for a single-user system
 
 const app = Fastify({
