@@ -38,9 +38,7 @@ await app.register(swaggerUi, {
   uiConfig: {
     docExpansion: "list",
     deepLinking: false
-  },
-  staticCSP: true,
-  transformStaticCSP: (header) => header
+  }
 });
 
 // Root path status check
