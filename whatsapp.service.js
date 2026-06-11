@@ -30,6 +30,11 @@ class WhatsappService {
   }
 
   initialize() {
+    if (this.client) {
+      console.log("Client already exists");
+      return;
+    }
+
     console.log("Initializing WhatsApp Client...");
     this.status = "INITIALIZING";
     this.qrCode = null;
@@ -84,11 +89,13 @@ class WhatsappService {
         this.error = msg;
       });
 
-      this.client.on("disconnected", (reason) => {
+      this.client.on("disconnected", async (reason) => {
         console.log("⚠️ WhatsApp Client Disconnected:", reason);
         this.status = "DISCONNECTED";
         this.qrCode = null;
         this.error = reason;
+        
+        await this.destroy();
         
         // Attempt to reinitialize after some delay
         setTimeout(() => {
