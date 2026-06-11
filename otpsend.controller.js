@@ -70,7 +70,7 @@ export const getScannerController = async (request, reply) => {
           <html>
             <head>
               <title>Scan WhatsApp QR Code</title>
-              <meta http-equiv="refresh" content="5">
+              <meta http-equiv="refresh" content="30">
               <style>
                 body {
                   font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;

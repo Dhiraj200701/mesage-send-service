@@ -19,9 +19,10 @@ process.on("unhandledRejection", (reason, promise) => {
     errMsg.includes("Session closed")
   ) {
     console.warn("⚠️ Transient Puppeteer error detected. Attempting to recover and re-initialize WhatsApp client...");
-    whatsappService.destroy()
-      .then(() => whatsappService.initialize())
-      .catch(err => console.error("Failed to re-initialize WhatsApp client after unhandled rejection:", err));
+    console.error(reason);
+    // whatsappService.destroy()
+    //   .then(() => whatsappService.initialize())
+    //   .catch(err => console.error("Failed to re-initialize WhatsApp client after unhandled rejection:", err));
   }
 });
 
@@ -34,9 +35,10 @@ process.on("uncaughtException", (error) => {
     errMsg.includes("Session closed")
   ) {
     console.warn("⚠️ Transient Puppeteer error detected. Attempting to recover and re-initialize WhatsApp client...");
-    whatsappService.destroy()
-      .then(() => whatsappService.initialize())
-      .catch(err => console.error("Failed to re-initialize WhatsApp client after uncaught exception:", err));
+    console.error(error);
+    // whatsappService.destroy()
+    //   .then(() => whatsappService.initialize())
+    //   .catch(err => console.error("Failed to re-initialize WhatsApp client after uncaught exception:", err));
   } else {
     // For other critical errors, exit the process so it can be restarted by nodemon/PM2
     console.error("Critical error. Exiting process...");

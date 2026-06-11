@@ -9,6 +9,7 @@ class WhatsappService {
     this.status = "INITIALIZING";
     this.qrCode = null;
     this.error = null;
+    this.isInitializing = false;
 
     // Graceful shutdown event listeners
     const cleanup = async (signal) => {
@@ -30,6 +31,12 @@ class WhatsappService {
   }
 
   initialize() {
+    if (this.isInitializing) {
+      console.log("Already initializing...");
+      return;
+    }
+    this.isInitializing = true;
+
     if (this.client) {
       console.log("Client already exists");
       return;
@@ -77,6 +84,7 @@ class WhatsappService {
 
       this.client.on("ready", () => {
         console.log("✅ WhatsApp Client is READY!");
+        this.isInitializing = false;
         this.status = "READY";
         this.qrCode = null;
         this.error = null;
@@ -111,6 +119,7 @@ class WhatsappService {
 
     } catch (err) {
       console.error("❌ Error setting up WhatsApp Client:", err);
+      this.isInitializing = false;
       this.status = "ERROR";
       this.error = err.message;
     }
