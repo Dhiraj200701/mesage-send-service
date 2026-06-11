@@ -97,18 +97,9 @@ class WhatsappService {
         this.error = msg;
       });
 
-      this.client.on("disconnected", async (reason) => {
-        console.log("⚠️ WhatsApp Client Disconnected:", reason);
+      this.client.on("disconnected", (reason) => {
+        console.log("WhatsApp Disconnected:", reason);
         this.status = "DISCONNECTED";
-        this.qrCode = null;
-        this.error = reason;
-        
-        await this.destroy();
-        
-        // Attempt to reinitialize after some delay
-        setTimeout(() => {
-          this.initialize();
-        }, 5000);
       });
 
       this.client.initialize().catch(err => {

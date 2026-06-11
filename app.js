@@ -9,42 +9,7 @@ import { whatsappService } from "./whatsapp.service.js";
 // Load environment variables
 dotenv.config();
 
-// Global process error handlers to prevent crashes from transient Puppeteer/WhatsApp Web navigation issues
-process.on("unhandledRejection", (reason, promise) => {
-  console.error("Unhandled Rejection at:", promise, "reason:", reason);
-  const errMsg = reason?.message || String(reason);
-  if (
-    errMsg.includes("Execution context was destroyed") ||
-    errMsg.includes("detached Frame") ||
-    errMsg.includes("Session closed")
-  ) {
-    console.warn("⚠️ Transient Puppeteer error detected. Attempting to recover and re-initialize WhatsApp client...");
-    console.error(reason);
-    // whatsappService.destroy()
-    //   .then(() => whatsappService.initialize())
-    //   .catch(err => console.error("Failed to re-initialize WhatsApp client after unhandled rejection:", err));
-  }
-});
-
-process.on("uncaughtException", (error) => {
-  console.error("Uncaught Exception:", error);
-  const errMsg = error?.message || String(error);
-  if (
-    errMsg.includes("Execution context was destroyed") ||
-    errMsg.includes("detached Frame") ||
-    errMsg.includes("Session closed")
-  ) {
-    console.warn("⚠️ Transient Puppeteer error detected. Attempting to recover and re-initialize WhatsApp client...");
-    console.error(error);
-    // whatsappService.destroy()
-    //   .then(() => whatsappService.initialize())
-    //   .catch(err => console.error("Failed to re-initialize WhatsApp client after uncaught exception:", err));
-  } else {
-    // For other critical errors, exit the process so it can be restarted by nodemon/PM2
-    console.error("Critical error. Exiting process...");
-    process.exit(1);
-  }
-});
+// Removed global error handlers to prevent auto-restarts for a single-user system
 
 const app = Fastify({
   logger: true
