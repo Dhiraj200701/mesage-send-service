@@ -63,8 +63,8 @@ class WhatsappService {
             "--no-sandbox",
             "--disable-setuid-sandbox",
             "--disable-dev-shm-usage",
-            "--disable-gpu",
-            "--no-zygote"
+            "--no-zygote",
+            "--single-process"
           ]
         }
       });
@@ -81,8 +81,12 @@ class WhatsappService {
         }
       });
 
+      this.client.on("authenticated", () => {
+        console.log("✅ AUTHENTICATED");
+      });
+
       this.client.on("ready", () => {
-        console.log("✅ WhatsApp Client is READY!");
+        console.log("✅ READY");
         this.isInitializing = false;
         this.status = "READY";
         this.qrCode = null;
@@ -90,7 +94,7 @@ class WhatsappService {
       });
 
       this.client.on("auth_failure", (msg) => {
-        console.error("❌ WhatsApp Authentication Failure:", msg);
+        console.log("❌ AUTH FAILURE:", msg);
         this.status = "AUTH_FAILURE";
         this.qrCode = null;
         this.error = msg;
