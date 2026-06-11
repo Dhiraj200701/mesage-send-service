@@ -47,16 +47,16 @@ class WhatsappService {
         },
         puppeteer: {
           headless: true,
+          product: "chrome",
+          executablePath:
+            process.env.PUPPETEER_EXECUTABLE_PATH ||
+            "/nix/store/bin/chromium",
           args: [
             "--no-sandbox",
             "--disable-setuid-sandbox",
             "--disable-dev-shm-usage",
-            "--disable-accelerated-2d-canvas",
-            "--no-first-run",
-            "--no-zygote",
             "--disable-gpu",
-            "--disable-features=IsolateOrigins,site-per-process",
-            "--disable-site-isolation-trials"
+            "--no-zygote"
           ]
         }
       });
@@ -159,8 +159,8 @@ class WhatsappService {
       return response;
     } catch (err) {
       console.error(`Failed to send WhatsApp message to ${to}:`, err);
-      if (err.message && err.message.includes("detached Frame")) {
-        console.warn("⚠️ Detached frame detected. Re-initializing WhatsApp Client...");
+      if (err.message && (err.message.includes("detached Frame") || err.message.includes("Execution context was destroyed"))) {
+        console.warn("⚠️ Detached frame or destroyed execution context detected. Re-initializing WhatsApp Client...");
         this.destroy().then(() => this.initialize());
       }
       throw new Error(`Failed to send WhatsApp message: ${err.message}`);

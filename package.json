@@ -4,6 +4,9 @@
   "description": "Standalone WhatsApp OTP Send Service",
   "main": "app.js",
   "type": "module",
+  "engines": {
+    "node": "20.x"
+  },
   "scripts": {
     "dev": "nodemon app.js",
     "start": "node app.js"
