@@ -47,8 +47,7 @@ class WhatsappService {
         },
         puppeteer: {
           headless: true,
-          product: "chrome",
-          executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
+          executablePath: "/snap/bin/chromium",
           args: [
             "--no-sandbox",
             "--disable-setuid-sandbox",
