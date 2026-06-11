@@ -110,6 +110,18 @@ class WhatsappService {
         console.error("❌ Error calling client.initialize():", err);
         this.status = "ERROR";
         this.error = err.message;
+        
+        // WhatsApp Web frequently forces a page reload when resuming an existing session,
+        // which destroys the context. Auto-retrying gracefully bypasses this.
+        if (err.message && err.message.includes("Execution context was destroyed")) {
+          console.warn("⚠️ Execution context destroyed during init. Retrying in 5 seconds...");
+          this.destroy().then(() => {
+            setTimeout(() => {
+              this.isInitializing = false;
+              this.initialize();
+            }, 5000);
+          });
+        }
       });
 
     } catch (err) {
