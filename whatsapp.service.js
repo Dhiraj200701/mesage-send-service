@@ -56,7 +56,8 @@ class WhatsappService {
             dataPath: "./.wwebjs_auth"
           }),
           webVersionCache: {
-            type: "local"
+            type: "remote",
+            remotePath: "https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/{version}.html"
           },
           puppeteer: {
             headless: true,
@@ -69,7 +70,6 @@ class WhatsappService {
               "--no-first-run",
               "--no-zygote",
               "--disable-gpu",
-              "--single-process", // Highly recommended for EC2 micro/small instances to prevent memory spikes
               "--disable-extensions"
             ]
           }
