@@ -2,7 +2,6 @@
 node_modules/
 
 # Local env files
-.env
 .env.local
 
 # WhatsApp session and browser caches

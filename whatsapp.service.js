@@ -55,9 +55,12 @@ class WhatsappService {
             clientId: "sound-whatsapp-session",
             dataPath: "./.wwebjs_auth"
           }),
+          webVersionCache: {
+            type: "local"
+          },
           puppeteer: {
             headless: true,
-            executablePath: "/snap/bin/chromium",
+            executablePath: process.env.CHROME_BIN,
             args: [
               "--no-sandbox",
               "--disable-setuid-sandbox",
@@ -66,7 +69,8 @@ class WhatsappService {
               "--no-first-run",
               "--no-zygote",
               "--disable-gpu",
-              "--single-process" // Highly recommended for EC2 micro/small instances to prevent memory spikes
+              "--single-process", // Highly recommended for EC2 micro/small instances to prevent memory spikes
+              "--disable-extensions"
             ]
           }
         });
