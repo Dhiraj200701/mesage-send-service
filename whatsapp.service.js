@@ -6,14 +6,14 @@ const { Client, LocalAuth } = pkg;
 class WhatsappService {
   constructor() {
     this.client = null;
-    this.status = "INITIALIZING";
+    this.status = "DISCONNECTED"; // INITIALIZING, QR_READY, READY, ERROR, DISCONNECTED
     this.qrCode = null;
     this.error = null;
-    this.isInitializing = false;
+    this.initPromise = null;
 
     // Graceful shutdown event listeners
     const cleanup = async (signal) => {
-      console.log(`Received ${signal}. Cleaning up WhatsApp Client...`);
+      console.log(`[WhatsAppService] Received ${signal}. Cleaning up WhatsApp Client...`);
       await this.destroy();
       
       if (signal === "SIGUSR2") {
@@ -30,120 +30,141 @@ class WhatsappService {
     process.once("SIGUSR2", () => cleanup("SIGUSR2"));
   }
 
-  initialize() {
-    if (this.isInitializing) {
-      console.log("Already initializing...");
-      return;
-    }
-    this.isInitializing = true;
-
-    if (this.client) {
-      console.log("Client already exists");
-      return;
+  async initialize() {
+    // Idempotent initialization
+    if (this.initPromise) {
+      console.log("[WhatsAppService] Initialization already in progress, returning existing promise.");
+      return this.initPromise;
     }
 
-    console.log("Initializing WhatsApp Client...");
+    if (this.status === "READY" && this.client) {
+      console.log("[WhatsAppService] Client is already READY.");
+      return;
+    }
+
     this.status = "INITIALIZING";
     this.qrCode = null;
     this.error = null;
 
-    try {
-      this.client = new Client({
-        authStrategy: new LocalAuth({
-          clientId: "sound-whatsapp-session",
-          dataPath: "./.wwebjs_auth"
-        }),
-        webVersionCache: {
-          type: "none"
-        },
-        puppeteer: {
-          headless: true,
-          executablePath: "/snap/bin/chromium",
-          args: [
-            "--no-sandbox",
-            "--disable-setuid-sandbox",
-            "--disable-dev-shm-usage",
-            "--disable-accelerated-2d-canvas",
-            "--no-first-run",
-            "--no-zygote",
-            "--disable-gpu"
-          ]
-        }
-      });
+    console.log("[WhatsAppService] Starting new WhatsApp Client initialization...");
 
-      this.client.on("qr", async (qr) => {
-        console.log("WhatsApp QR Code received. Generating Data URL...");
-        try {
-          this.qrCode = await QRCode.toDataURL(qr);
-          this.status = "QR_READY";
+    this.initPromise = new Promise((resolve, reject) => {
+      try {
+        this.client = new Client({
+          authStrategy: new LocalAuth({
+            clientId: "sound-whatsapp-session",
+            dataPath: "./.wwebjs_auth"
+          }),
+          puppeteer: {
+            headless: true,
+            args: [
+              "--no-sandbox",
+              "--disable-setuid-sandbox",
+              "--disable-dev-shm-usage",
+              "--disable-accelerated-2d-canvas",
+              "--no-first-run",
+              "--no-zygote",
+              "--disable-gpu",
+              "--single-process" // Highly recommended for EC2 micro/small instances to prevent memory spikes
+            ]
+          }
+        });
+
+        this.client.on("qr", async (qr) => {
+          console.log("[WhatsAppService] QR Code received. Generating Data URL...");
+          try {
+            this.qrCode = await QRCode.toDataURL(qr);
+            this.status = "QR_READY";
+            this.error = null;
+            resolve(false); // Initialized but needs scan
+          } catch (err) {
+            console.error("[WhatsAppService] Failed to generate QR Code:", err);
+            this.error = "Failed to generate QR Code";
+            this.status = "ERROR";
+            reject(err);
+          }
+        });
+
+        this.client.on("authenticated", () => {
+          console.log("[WhatsAppService] ✅ AUTHENTICATED successfully. Session loaded.");
+          // Clear QR code to save memory
+          this.qrCode = null;
+        });
+
+        this.client.on("ready", () => {
+          console.log("[WhatsAppService] ✅ READY to send messages.");
+          this.status = "READY";
+          this.qrCode = null;
           this.error = null;
-        } catch (err) {
-          console.error("Failed to generate QR Code data URL:", err);
-          this.error = "Failed to generate QR Code";
-        }
-      });
+          resolve(true);
+        });
 
-      this.client.on("authenticated", () => {
-        console.log("✅ AUTHENTICATED");
-      });
+        this.client.on("auth_failure", (msg) => {
+          console.error("[WhatsAppService] ❌ AUTH FAILURE:", msg);
+          this.status = "AUTH_FAILURE";
+          this.qrCode = null;
+          this.error = msg;
+          reject(new Error(`Auth Failure: ${msg}`));
+          // Usually requires manual intervention/re-scan, so we destroy
+          this.destroy();
+        });
 
-      this.client.on("ready", () => {
-        console.log("✅ READY");
-        this.isInitializing = false;
-        this.status = "READY";
-        this.qrCode = null;
-        this.error = null;
-      });
+        this.client.on("disconnected", (reason) => {
+          console.log("[WhatsAppService] WhatsApp Disconnected:", reason);
+          this.status = "DISCONNECTED";
+          this.destroy().then(() => {
+            console.log("[WhatsAppService] Attempting to auto-reconnect in 5 seconds...");
+            setTimeout(() => this.initialize(), 5000);
+          });
+        });
 
-      this.client.on("auth_failure", (msg) => {
-        console.log("❌ AUTH FAILURE:", msg);
-        this.status = "AUTH_FAILURE";
-        this.qrCode = null;
-        this.error = msg;
-      });
+        this.client.initialize().catch(err => {
+          console.error("[WhatsAppService] ❌ Error during client.initialize():", err.message);
+          this.status = "ERROR";
+          this.error = err.message;
+          reject(err);
 
-      this.client.on("disconnected", (reason) => {
-        console.log("WhatsApp Disconnected:", reason);
-        this.status = "DISCONNECTED";
-      });
+          // Handle execution context destroyed
+          if (err.message && (err.message.includes("Execution context was destroyed") || err.message.includes("detached Frame"))) {
+            console.warn("[WhatsAppService] ⚠️ Execution context destroyed. Retrying in 5 seconds...");
+            this.destroy().then(() => {
+              setTimeout(() => this.initialize(), 5000);
+            });
+          }
+        });
 
-      this.client.initialize().catch(err => {
-        console.error("❌ Error calling client.initialize():", err);
+      } catch (err) {
+        console.error("[WhatsAppService] ❌ Error setting up WhatsApp Client:", err);
         this.status = "ERROR";
         this.error = err.message;
-        
-        // WhatsApp Web frequently forces a page reload when resuming an existing session,
-        // which destroys the context. Auto-retrying gracefully bypasses this.
-        if (err.message && err.message.includes("Execution context was destroyed")) {
-          console.warn("⚠️ Execution context destroyed during init. Retrying in 5 seconds...");
-          this.destroy().then(() => {
-            setTimeout(() => {
-              this.isInitializing = false;
-              this.initialize();
-            }, 5000);
-          });
-        }
-      });
+        reject(err);
+      }
+    });
 
-    } catch (err) {
-      console.error("❌ Error setting up WhatsApp Client:", err);
-      this.isInitializing = false;
-      this.status = "ERROR";
-      this.error = err.message;
+    try {
+      await this.initPromise;
+    } finally {
+      // Clear the promise so future calls can re-init if destroyed
+      this.initPromise = null;
     }
   }
 
   async destroy() {
+    console.log("[WhatsAppService] Destroying client...");
     if (this.client) {
       try {
         await this.client.destroy();
-        console.log("WhatsApp client destroyed successfully.");
+        console.log("[WhatsAppService] Client destroyed successfully.");
       } catch (err) {
-        console.error("Error destroying WhatsApp client:", err);
+        console.error("[WhatsAppService] Error destroying client (may already be dead):", err.message);
       }
       this.client = null;
-      this.status = "DISCONNECTED";
     }
+    // Also reset state safely
+    if (this.status !== "AUTH_FAILURE") {
+        this.status = "DISCONNECTED";
+    }
+    this.initPromise = null;
   }
 
   getQRState() {
@@ -179,9 +200,9 @@ class WhatsappService {
       const response = await this.client.sendMessage(formattedNumber, message);
       return response;
     } catch (err) {
-      console.error(`Failed to send WhatsApp message to ${to}:`, err);
-      if (err.message && (err.message.includes("detached Frame") || err.message.includes("Execution context was destroyed"))) {
-        console.warn("⚠️ Detached frame or destroyed execution context detected. Re-initializing WhatsApp Client...");
+      console.error(`[WhatsAppService] Failed to send message to ${to}:`, err.message);
+      if (err.message && (err.message.includes("detached Frame") || err.message.includes("Execution context was destroyed") || err.message.includes("Protocol error"))) {
+        console.warn("[WhatsAppService] ⚠️ Browser crash detected. Re-initializing WhatsApp Client...");
         this.destroy().then(() => this.initialize());
       }
       throw new Error(`Failed to send WhatsApp message: ${err.message}`);

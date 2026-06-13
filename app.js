@@ -19,8 +19,6 @@ process.on("uncaughtException", (error) => {
   console.error("⚠️ Uncaught Exception (Caught by Safe Handler):", error?.message || error);
 });
 
-// Removed global error handlers to prevent auto-restarts for a single-user system
-
 const app = Fastify({
   logger: true
 });
@@ -59,6 +57,35 @@ app.get("/", async () => {
   };
 });
 
+// Health check endpoint (for PM2, AWS Target Groups, etc.)
+app.get("/health", async (request, reply) => {
+  return reply.code(200).send({
+    success: true,
+    status: "healthy",
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Readiness endpoint (indicates if WhatsApp is actually ready to send)
+app.get("/ready", async (request, reply) => {
+  const qrState = whatsappService.getQRState();
+  if (qrState.status === "READY") {
+    return reply.code(200).send({
+      success: true,
+      ready: true,
+      status: qrState.status
+    });
+  } else {
+    return reply.code(503).send({
+      success: false,
+      ready: false,
+      status: qrState.status,
+      message: "WhatsApp client is not ready yet."
+    });
+  }
+});
+
 // Register routes exactly with the same prefix to maintain backward compatibility
 app.register(otpRoutes, {
   prefix: "/api/v1/otp"
@@ -66,7 +93,7 @@ app.register(otpRoutes, {
 
 const start = async () => {
   try {
-    // Initialize WhatsApp Web Client
+    // Initialize WhatsApp Web Client idempotently
     whatsappService.initialize();
 
     const port = process.env.PORT || 3002;
