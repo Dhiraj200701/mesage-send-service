@@ -1,4 +1,4 @@
-import { whatsappService } from "./whatsapp.service.js";
+import { whatsappService } from "../services/whatsapp.service.js";
 
 /**
  * Controller to get the WhatsApp connection status and QR code scanner.
@@ -262,4 +262,3 @@ export const getStatusController = async (request, reply) => {
     });
   }
 };
-

@@ -1,10 +1,12 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
+import rateLimit from "@fastify/rate-limit";
 import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
 import dotenv from "dotenv";
-import otpRoutes from "./otpsend.routes.js";
-import { whatsappService } from "./whatsapp.service.js";
+import otpRoutes from "./routes/otp.routes.js";
+import { whatsappService } from "./services/whatsapp.service.js";
+import { startHeartbeat } from "./jobs/whatsappHeartbeat.js";
 
 // Load environment variables
 dotenv.config();
@@ -23,9 +25,17 @@ const app = Fastify({
   logger: true
 });
 
+// Register Rate Limiting
+await app.register(rateLimit, {
+  max: 100,
+  timeWindow: "1 minute"
+});
+
 // Register CORS
 await app.register(cors, {
-  origin: "*",
+  origin: [
+    "https://yourdomain.com"
+  ],
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"]
 });
 
@@ -95,6 +105,9 @@ const start = async () => {
   try {
     // Initialize WhatsApp Web Client idempotently
     whatsappService.initialize();
+    
+    // Start heartbeat
+    startHeartbeat(whatsappService);
 
     const port = process.env.PORT || 3002;
     await app.listen({

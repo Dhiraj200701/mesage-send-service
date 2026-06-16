@@ -1,5 +1,7 @@
 import pkg from "whatsapp-web.js";
 import QRCode from "qrcode";
+import { whatsappQueue } from "../utils/queue.js";
+import { logInfo, logError } from "../utils/logger.js";
 
 const { Client, LocalAuth } = pkg;
 
@@ -51,6 +53,8 @@ class WhatsappService {
     this.initPromise = new Promise((resolve, reject) => {
       try {
         this.client = new Client({
+          takeoverOnConflict: true,
+          takeoverTimeoutMs: 10000,
           authStrategy: new LocalAuth({
             clientId: "sound-whatsapp-session",
             dataPath: "./.wwebjs_auth"
@@ -192,6 +196,10 @@ class WhatsappService {
       throw new Error("Invalid phone number provided");
     }
 
+    if (formattedNumber.length < 10 || formattedNumber.length > 15) {
+      throw new Error("Invalid phone number length");
+    }
+
     // Prepend India country code (91) if it's a 10-digit number
     if (formattedNumber.length === 10) {
       formattedNumber = `91${formattedNumber}`;
@@ -201,17 +209,25 @@ class WhatsappService {
       formattedNumber = `${formattedNumber}@c.us`;
     }
 
-    try {
-      const response = await this.client.sendMessage(formattedNumber, message);
-      return response;
-    } catch (err) {
-      console.error(`[WhatsAppService] Failed to send message to ${to}:`, err.message);
-      if (err.message && (err.message.includes("detached Frame") || err.message.includes("Execution context was destroyed") || err.message.includes("Protocol error"))) {
-        console.warn("[WhatsAppService] ⚠️ Browser crash detected. Re-initializing WhatsApp Client...");
-        this.destroy().then(() => this.initialize());
+    return whatsappQueue.add(async () => {
+      try {
+        const response = await Promise.race([
+          this.client.sendMessage(formattedNumber, message),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("Send timeout")), 30000)
+          )
+        ]);
+        logInfo(`Message sent to ${formattedNumber}`);
+        return response;
+      } catch (err) {
+        logError(`Failed to send message to ${to}: ${err.message}`);
+        if (err.message && (err.message.includes("detached Frame") || err.message.includes("Execution context was destroyed") || err.message.includes("Protocol error"))) {
+          console.warn("[WhatsAppService] ⚠️ Browser crash detected. Re-initializing WhatsApp Client...");
+          this.destroy().then(() => this.initialize());
+        }
+        throw new Error(`Failed to send WhatsApp message: ${err.message}`);
       }
-      throw new Error(`Failed to send WhatsApp message: ${err.message}`);
-    }
+    });
   }
 }
 

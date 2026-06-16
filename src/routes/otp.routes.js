@@ -2,7 +2,8 @@ import {
   getScannerController,
   sendMessageController,
   getStatusController
-} from "./otpsend.controller.js";
+} from "../controllers/otp.controller.js";
+import { apiKeyMiddleware } from "../middlewares/apiKey.middleware.js";
 
 const getScannerSchema = {
   description: "Get current WhatsApp client status and QR scanner code",
@@ -54,6 +55,7 @@ const sendMessageSchema = {
       message: { 
         type: "string", 
         minLength: 1, 
+        maxLength: 1000,
         description: "Text message or OTP body to send" 
       }
     },
@@ -132,6 +134,7 @@ export default async function (fastify) {
   fastify.post(
     "/send",
     {
+      preHandler: [apiKeyMiddleware],
       schema: sendMessageSchema
     },
     sendMessageController
